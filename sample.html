@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mPOS Access Token Sample</title>
+    <style>
+        body { font-family: sans-serif; padding: 16px; }
+        button { padding: 12px 24px; font-size: 16px; margin: 8px 0; }
+        pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; word-break: break-all; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h2>mPOS Access Token Sample</h2>
+    <button id="btnGetToken">Get Access Token</button>
+    <p id="status"></p>
+    <pre id="result"></pre>
+
+    <script>
+        document.getElementById('btnGetToken').addEventListener('click', function () {
+            var statusEl = document.getElementById('status');
+            var resultEl = document.getElementById('result');
+
+            statusEl.textContent = 'Requesting token...';
+            statusEl.className = '';
+            resultEl.textContent = '';
+
+            try {
+                // jsBridge is registered by HybridWebViewRenderer as a JavaScript interface.
+                // "Android" and "AndroidPOS" are aliases to the same JSBridge instance.
+                var responseJson = jsBridge.invokeFunction(JSON.stringify({
+                    FunctionName: 'GET_ACCESS_TOKEN'
+                }));
+
+                var response = JSON.parse(responseJson);
+
+                var r = response.Result;
+                var details =
+                    'Token: ' + r.Token + '\n' +
+                    'Product: ' + r.Product + '\n' +
+                    'NavUrl: ' + r.NavUrl + '\n' +
+                    'NavWSUrl: ' + r.NavWSUrl + '\n' +
+                    'NavPOSUrl: ' + r.NavPOSUrl + '\n' +
+                    'NavWSRequestUri: ' + r.NavWSRequestUri;
+
+                if (response.IsSuccessful) {
+                    statusEl.textContent = 'Token retrieved successfully';
+                    statusEl.className = 'success';
+                } else {
+                    statusEl.textContent = 'Error: ' + response.ErrorMessage;
+                    statusEl.className = 'error';
+                }
+                resultEl.textContent = details;
+            } catch (e) {
+                statusEl.textContent = 'Exception: ' + e.message;
+                statusEl.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>
