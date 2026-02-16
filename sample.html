@@ -6,7 +6,7 @@
     <title>mPOS Access Token Sample</title>
     <style>
         body { font-family: sans-serif; padding: 16px; }
-        button { padding: 12px 24px; font-size: 16px; margin: 8px 0; }
+        button { padding: 12px 24px; font-size: 16px; margin: 8px 0; display: block; }
         pre { background: #f4f4f4; padding: 12px; white-space: pre-wrap; word-break: break-all; }
         .error { color: red; }
         .success { color: green; }
@@ -15,41 +15,43 @@
 <body>
     <h2>mPOS Access Token Sample</h2>
     <button id="btnGetToken">Get Access Token</button>
+    <button id="btnGetCompanies" disabled>Get Companies</button>
     <p id="status"></p>
     <pre id="result"></pre>
 
     <script>
+        var accessToken = null;
+        var apiBaseUrl = null;
+
         document.getElementById('btnGetToken').addEventListener('click', function () {
             var statusEl = document.getElementById('status');
             var resultEl = document.getElementById('result');
+            var btnCompanies = document.getElementById('btnGetCompanies');
 
             statusEl.textContent = 'Requesting token...';
             statusEl.className = '';
             resultEl.textContent = '';
+            btnCompanies.disabled = true;
 
             try {
-                // jsBridge is registered by HybridWebViewRenderer as a JavaScript interface.
-                // "Android" and "AndroidPOS" are aliases to the same JSBridge instance.
                 var responseJson = jsBridge.invokeFunction(JSON.stringify({
                     FunctionName: 'GET_ACCESS_TOKEN'
                 }));
 
                 var response = JSON.parse(responseJson);
-
                 var r = response.Result;
                 var details =
                     'Token: ' + r.Token + '\n' +
                     'Product: ' + r.Product + '\n' +
-                    'NavUrl: ' + r.NavUrl + '\n' +
-                    'NavWSUrl: ' + r.NavWSUrl + '\n' +
-                    'NavPOSUrl: ' + r.NavPOSUrl + '\n' +
-                    'NavWSRequestUri: ' + r.NavWSRequestUri + '\n' +
-                    'NavCompany: ' + r.NavCompany + '\n' +
-                    'NavApiBaseUrl: ' + r.NavApiBaseUrl;
+                    'Company: ' + r.Company + '\n' +
+                    'ApiBaseUrl: ' + r.ApiBaseUrl;
 
                 if (response.IsSuccessful) {
+                    accessToken = r.Token;
+                    apiBaseUrl = r.ApiBaseUrl;
                     statusEl.textContent = 'Token retrieved successfully';
                     statusEl.className = 'success';
+                    btnCompanies.disabled = false;
                 } else {
                     statusEl.textContent = 'Error: ' + response.ErrorMessage;
                     statusEl.className = 'error';
@@ -59,6 +61,40 @@
                 statusEl.textContent = 'Exception: ' + e.message;
                 statusEl.className = 'error';
             }
+        });
+
+        document.getElementById('btnGetCompanies').addEventListener('click', function () {
+            var statusEl = document.getElementById('status');
+            var resultEl = document.getElementById('result');
+
+            statusEl.textContent = 'Fetching companies...';
+            statusEl.className = '';
+            resultEl.textContent = '';
+
+            var url = apiBaseUrl + 'api/v2.0/companies';
+
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    throw new Error(resp.status + ' ' + resp.statusText);
+                }
+                return resp.json();
+            })
+            .then(function (data) {
+                statusEl.textContent = 'Companies retrieved successfully';
+                statusEl.className = 'success';
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(function (err) {
+                statusEl.textContent = 'Error: ' + err.message;
+                statusEl.className = 'error';
+            });
         });
     </script>
 </body>
