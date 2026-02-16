@@ -41,10 +41,10 @@
                 var response = JSON.parse(responseJson);
                 var r = response.Result;
                 var details =
-                    'Token: ' + r.Token + '\n' +
-                    'Product: ' + r.Product + '\n' +
-                    'Company: ' + r.Company + '\n' +
-                    'ApiBaseUrl: ' + r.ApiBaseUrl;
+                    'Product: ' + r.Product + '\n\n' +
+                    'Company: ' + r.Company + '\n\n' +
+                    'ApiBaseUrl: ' + r.ApiBaseUrl + '\n\n' +
+					'Token: ' + r.Token;
 
                 if (response.IsSuccessful) {
                     accessToken = r.Token;
@@ -71,7 +71,7 @@
             statusEl.className = '';
             resultEl.textContent = '';
 
-            var url = apiBaseUrl + 'api/v2.0/companies';
+            var url = apiBaseUrl + '/api/v2.0/companies';
 
             fetch(url, {
                 method: 'GET',
