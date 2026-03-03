@@ -44,7 +44,8 @@
                     'Product: ' + r.Product + '\n\n' +
                     'Company: ' + r.Company + '\n\n' +
                     'ApiBaseUrl: ' + r.ApiBaseUrl + '\n\n' +
-					'Token: ' + r.Token;
+					'Token: ' + r.Token + '\n\n' +
+					'TokenExpiration: ' + r.TokenExpiration;
 
                 if (response.IsSuccessful) {
                     accessToken = r.Token;
@@ -99,3 +100,4 @@
     </script>
 </body>
 </html>
+
