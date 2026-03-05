@@ -16,6 +16,7 @@
     <h2>mPOS Access Token Sample</h2>
     <button id="btnGetToken">Get Access Token</button>
     <button id="btnGetCompanies" disabled>Get Companies</button>
+    <button id="btnExitKiosk">Exit Kiosk Mode</button>
     <p id="status"></p>
     <pre id="result"></pre>
 
@@ -44,8 +45,7 @@
                     'Product: ' + r.Product + '\n\n' +
                     'Company: ' + r.Company + '\n\n' +
                     'ApiBaseUrl: ' + r.ApiBaseUrl + '\n\n' +
-					'Token: ' + r.Token + '\n\n' +
-					'TokenExpiration: ' + r.TokenExpiration;
+					'Token: ' + r.Token;
 
                 if (response.IsSuccessful) {
                     accessToken = r.Token;
@@ -58,6 +58,34 @@
                     statusEl.className = 'error';
                 }
                 resultEl.textContent = details;
+            } catch (e) {
+                statusEl.textContent = 'Exception: ' + e.message;
+                statusEl.className = 'error';
+            }
+        });
+
+        document.getElementById('btnExitKiosk').addEventListener('click', function () {
+            var statusEl = document.getElementById('status');
+            var resultEl = document.getElementById('result');
+
+            statusEl.textContent = 'Exiting kiosk mode...';
+            statusEl.className = '';
+            resultEl.textContent = '';
+
+            try {
+                var responseJson = jsBridge.invokeFunction(JSON.stringify({
+                    FunctionName: 'EXIT_KIOSK'
+                }));
+
+                var response = JSON.parse(responseJson);
+                if (response.IsSuccessful) {
+                    statusEl.textContent = 'Kiosk mode exited';
+                    statusEl.className = 'success';
+                } else {
+                    statusEl.textContent = 'Error: ' + response.ErrorMessage;
+                    statusEl.className = 'error';
+                }
+                resultEl.textContent = JSON.stringify(response, null, 2);
             } catch (e) {
                 statusEl.textContent = 'Exception: ' + e.message;
                 statusEl.className = 'error';
@@ -100,4 +128,3 @@
     </script>
 </body>
 </html>
-
