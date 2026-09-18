@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Test Page</title>
+    <style>
+        :root {
+            --bg: #f3f4f6; --card: #fff; --text: #111827; --muted: #6b7280; --line: #e5e7eb;
+            --accent: #1d4ed8; --ok: #15803d; --err: #b91c1c; --ok-bg: #dcfce7; --err-bg: #fee2e2;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, sans-serif; }
+        header { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 16px; }
+        header h1 { margin: 0 0 4px; font-size: 20px; }
+        #bridge { font-size: 13px; color: var(--muted); }
+        #status { margin: 4px 16px 0; padding: 10px 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); min-height: 42px; }
+        #status.success { background: var(--ok-bg); color: var(--ok); }
+        #status.error { background: var(--err-bg); color: var(--err); }
+        main { padding: 8px 16px 32px; }
+        section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; }
+        h2 { margin: 0 0 8px; font-size: 18px; }
+        .note { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button { min-height: 48px; padding: 10px 14px; font-size: 15px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; }
+        button:active { opacity: .8; }
+        button.secondary { background: var(--line); color: var(--text); min-height: 36px; padding: 6px 12px; font-size: 14px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 4px; font-size: 14px; color: var(--muted); }
+        .last { font-family: monospace; font-size: 22px; word-break: break-all; padding: 10px 12px; border-radius: 8px; background: var(--bg); min-height: 50px; }
+        .buffer { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+        .buffer code { color: var(--text); }
+        pre { margin: 0; padding: 12px; background: var(--bg); border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Scanner Test Page</h1>
+        <div id="bridge"></div>
+    </header>
+    <div id="status">Ready</div>
+
+    <main>
+        <section>
+            <h2>Barcode</h2>
+            <p class="note">
+                Intent mode: the app calls Dragonglass.scannedValue(value) for every scan.
+                Keystroke mode ("Use keystrokes for barcodes" on the setup page): DataWedge types the barcode plus Enter into the page.
+                Tap the page once so it has focus.
+            </p>
+            <div class="last" id="lastBarcode">&nbsp;</div>
+            <p class="buffer">Keystroke buffer: <code id="keyBuffer"></code></p>
+            <div class="toolbar"><span id="barcodeCountLabel">0 received</span><button class="secondary" id="btnClearBarcodes">Clear</button></div>
+            <pre id="barcodes"></pre>
+        </section>
+
+        <section>
+            <h2>NFC</h2>
+            <p class="note">
+                Single scan blocks the page until a tag is read or Cancel is tapped on the native "Scanning for NFC..." dialog.
+                Single and continuous mode cannot run at the same time.
+                Continuous results are pushed to the page by the app; a session that dies reports once with IsSuccessful false.
+            </p>
+            <div class="grid">
+                <button id="btnScanOne">Scan one<br>NFC_SCAN</button>
+                <button id="btnIsScanning">Is scanning?<br>NFC_IS_SCANNING</button>
+                <button id="btnStart">Start continuous<br>NFC_SCAN_START</button>
+                <button id="btnStop">Stop continuous<br>NFC_SCAN_STOP</button>
+            </div>
+            <div class="toolbar"><span>Last bridge response</span></div>
+            <pre id="nfcResponse"></pre>
+            <div class="toolbar"><span id="tagCountLabel">0 tags received</span><button class="secondary" id="btnClearTags">Clear</button></div>
+            <pre id="tags"></pre>
+        </section>
+    </main>
+
+    <script>
+        var statusEl = document.getElementById('status');
+        var bridgeEl = document.getElementById('bridge');
+        var lastBarcodeEl = document.getElementById('lastBarcode');
+        var keyBufferEl = document.getElementById('keyBuffer');
+        var barcodesEl = document.getElementById('barcodes');
+        var barcodeCountLabel = document.getElementById('barcodeCountLabel');
+        var nfcResponseEl = document.getElementById('nfcResponse');
+        var tagsEl = document.getElementById('tags');
+        var tagCountLabel = document.getElementById('tagCountLabel');
+        var barcodeCount = 0;
+        var tagCount = 0;
+        var keyBuffer = '';
+
+        var hasBridge = typeof jsBridge !== 'undefined' && typeof jsBridge.invokeFunction === 'function';
+        bridgeEl.textContent = hasBridge ? 'jsBridge available' : 'jsBridge missing: open this page inside the scanner app';
+
+        function now() { return new Date().toLocaleTimeString(); }
+
+        function setStatus(text, cls) {
+            statusEl.textContent = now() + '  ' + text;
+            statusEl.className = cls || '';
+        }
+
+        function logBarcode(value, source) {
+            barcodeCount++;
+            lastBarcodeEl.textContent = value;
+            barcodeCountLabel.textContent = barcodeCount + ' received';
+            barcodesEl.textContent = '#' + barcodeCount + ' ' + now() + ' via ' + source + ', ' + value.length + ' chars\n' +
+                                     JSON.stringify(value) + '\n\n' + barcodesEl.textContent;
+            setStatus('Barcode #' + barcodeCount + ' via ' + source, 'success');
+        }
+
+        // Native calls this with the barcode string; the page must define it.
+        window.Dragonglass = {
+            scannedValue: function (value) {
+                try {
+                    logBarcode(value, 'scannedValue');
+                } catch (e) {
+                    setStatus('Exception in Dragonglass.scannedValue: ' + e.message, 'error');
+                }
+            }
+        };
+
+        // Keystroke mode: printable keys build the barcode, Enter (bdf_send_enter) completes it.
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (keyBuffer) logBarcode(keyBuffer, 'keystrokes');
+                keyBuffer = '';
+            } else if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                keyBuffer += e.key;
+            }
+            keyBufferEl.textContent = keyBuffer;
+        });
+
+        function formatTag(r) {
+            r = r || {};
+            return 'Id: ' + (r.Id || '') + '\nHexBytes: ' + (r.HexBytes || '');
+        }
+
+        // Native calls this with a JSON string for every tag read in continuous mode; the page must define it.
+        window.handleMposNfcResult = function (json) {
+            try {
+                var response = typeof json === 'string' ? JSON.parse(json) : json;
+                tagCount++;
+                tagCountLabel.textContent = tagCount + ' tags received';
+                var line = '#' + tagCount + ' ' + now() +
+                           (response.IsSuccessful ? ' OK' : ' FAILED: ' + (response.ErrorMessage || 'empty Id or no data records')) + '\n' +
+                           formatTag(response.Result) + '\n\n';
+                tagsEl.textContent = line + tagsEl.textContent;
+                setStatus('Tag #' + tagCount + (response.IsSuccessful ? ' received' : ' failed'), response.IsSuccessful ? 'success' : 'error');
+            } catch (e) {
+                setStatus('Exception in NFC result handler: ' + e.message, 'error');
+            }
+        };
+
+        function invoke(functionName, onSuccess) {
+            setStatus(functionName + '...');
+            nfcResponseEl.textContent = '';
+            try {
+                var response = JSON.parse(jsBridge.invokeFunction(JSON.stringify({ FunctionName: functionName })));
+                nfcResponseEl.textContent = functionName + '\n' + JSON.stringify(response, null, 2);
+                if (response.IsSuccessful) {
+                    setStatus(functionName + ': ' + onSuccess(response), 'success');
+                } else {
+                    setStatus(functionName + ' failed: ' + response.ErrorMessage, 'error');
+                }
+            } catch (e) {
+                setStatus(functionName + ' exception: ' + e.message, 'error');
+            }
+        }
+
+        document.getElementById('btnScanOne').addEventListener('click', function () {
+            invoke('NFC_SCAN', function (r) { return 'tag read, ' + formatTag(r.Result).replace('\n', ', '); });
+        });
+        document.getElementById('btnStart').addEventListener('click', function () {
+            invoke('NFC_SCAN_START', function (r) { return 'started, IsScanning=' + String(r.Result); });
+        });
+        document.getElementById('btnStop').addEventListener('click', function () {
+            invoke('NFC_SCAN_STOP', function (r) { return 'stopped, Stopped=' + String(r.Result); });
+        });
+        document.getElementById('btnIsScanning').addEventListener('click', function () {
+            invoke('NFC_IS_SCANNING', function (r) { return 'IsScanning=' + String(r.Result); });
+        });
+
+        document.getElementById('btnClearBarcodes').addEventListener('click', function () {
+            barcodeCount = 0;
+            barcodeCountLabel.textContent = '0 received';
+            lastBarcodeEl.innerHTML = '&nbsp;';
+            barcodesEl.textContent = '';
+        });
+        document.getElementById('btnClearTags').addEventListener('click', function () {
+            tagCount = 0;
+            tagCountLabel.textContent = '0 tags received';
+            tagsEl.textContent = '';
+            nfcResponseEl.textContent = '';
+        });
+    </script>
+</body>
+</html>
