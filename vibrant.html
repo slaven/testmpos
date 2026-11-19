@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Vibrant app switch test</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f3f5f8; --panel: #fff; --text: #172334; --muted: #526174; --line: #cbd3df; --accent: #075f9c; --button: #eaf3fa; --code: #eef1f5; --error: #ac2634; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #101721; --panel: #192331; --text: #edf3fc; --muted: #b6c4d6; --line: #45546a; --accent: #8acbff; --button: #223e56; --code: #111b28; --error: #ff9fa8; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.5 system-ui, sans-serif; }
+    main { max-width: 1000px; margin: auto; padding: 20px 14px 48px; }
+    h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); margin: 0 0 8px; }
+    h2 { font-size: 1.3rem; margin: 0 0 12px; }
+    h3 { font-size: 1.1rem; margin: 0 0 12px; }
+    p { margin: 10px 0; }
+    section { margin-top: 20px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+    .muted, .help { color: var(--muted); }
+    .help { font-size: .94rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+    button, .button-link { display: inline-flex; justify-content: center; align-items: center; min-height: 52px; padding: 12px 18px; border: 1px solid var(--accent); border-radius: 9px; color: var(--accent); background: var(--button); font: inherit; font-weight: 650; text-decoration: none; text-align: center; cursor: pointer; touch-action: manipulation; }
+    button:disabled, .button-link[aria-disabled="true"] { opacity: .6; cursor: not-allowed; border-color: var(--line); }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    input, textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+    input { min-height: 52px; }
+    label { display: block; margin-bottom: 6px; font-weight: 650; }
+    code, pre, textarea { font-family: ui-monospace, Consolas, monospace; }
+    code { overflow-wrap: anywhere; }
+    pre { margin: 8px 0; padding: 12px; background: var(--code); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; }
+    .table-scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { font-weight: 650; }
+    td:first-child { white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+    td:last-child { overflow-wrap: anywhere; min-width: 100px; }
+    .bridge-grid { display: grid; gap: 14px; }
+    .bridge-card { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+    .bridge-card button { width: 100%; }
+    dl { margin: 12px 0 0; }
+    dt { color: var(--muted); font-size: .9rem; margin-top: 8px; }
+    dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .error { color: var(--error); }
+    #event-log { max-height: 460px; overflow-y: auto; min-height: 100px; }
+    #copy-text { min-height: 200px; }
+    [hidden] { display: none !important; }
+    @media (min-width: 760px) { .bridge-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 480px) { section { padding: 14px; } .actions > * { width: 100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vibrant app switch test</h1>
+    <p class="muted">Use inside the mPOS Android WebView to test the native bridge, or in device Chrome to test the app links.</p>
+
+    <section aria-labelledby="environment-title">
+      <h2 id="environment-title">1. Environment</h2>
+      <p><strong>User agent</strong></p>
+      <pre id="user-agent"></pre>
+      <div class="actions"><button id="refresh" type="button">Refresh environment</button></div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Object</th><th scope="col">Exists</th><th scope="col">Method is function</th><th scope="col">Details</th></tr></thead>
+          <tbody id="environment-rows"></tbody>
+        </table>
+      </div>
+      <p class="help">“Method is function” checks <code>typeof obj.VibrantAppSwitch === "function"</code>. An inaccessible frame is reported as unknown.</p>
+    </section>
+
+    <section aria-labelledby="bridge-title">
+      <h2 id="bridge-title">2. Bridge call</h2>
+      <p>Each call sends <code>JSON.stringify({})</code> and awaits the native result. Calling can switch apps.</p>
+      <p id="bridge-scope" class="help"></p>
+      <div id="bridge-cards" class="bridge-grid"></div>
+    </section>
+
+    <section aria-labelledby="deep-link-title">
+      <h2 id="deep-link-title">3. Direct deep link</h2>
+      <p class="help">Open Vibrant directly without using the native bridge.</p>
+      <label for="callback-url">callbackUrl</label>
+      <input id="callback-url" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" value="navipartnermpos://com.navipartner.mpos/vibrant">
+      <div class="actions">
+        <button id="callback-mpos" type="button">Use mPOS callback</button>
+        <button id="callback-web" type="button">Use https://vibrant.io/</button>
+      </div>
+      <p><strong>URL preview</strong></p>
+      <pre id="deep-link-preview" aria-live="polite"></pre>
+      <div class="actions">
+        <a id="deep-link-anchor" class="button-link" href="vibrantio://a2a?callbackUrl=navipartnermpos%3A%2F%2Fcom.navipartner.mpos%2Fvibrant">Open Vibrant via anchor</a>
+        <button id="deep-link-location" type="button">Open via location.href</button>
+      </div>
+      <p id="deep-link-status" class="help" role="status"></p>
+    </section>
+
+    <section aria-labelledby="return-title">
+      <h2 id="return-title">4. Return-path self test</h2>
+      <p>From Chrome, open this link to test the mPOS return intent filter.</p>
+      <pre>navipartnermpos://com.navipartner.mpos/vibrant</pre>
+      <a id="return-anchor" class="button-link" href="navipartnermpos://com.navipartner.mpos/vibrant">Open mPOS return link</a>
+    </section>
+
+    <section aria-labelledby="log-title">
+      <h2 id="log-title">5. Event log</h2>
+      <p class="help">Local timestamps use HH:mm:ss.SSS. The latest 500 entries are saved in this tab's sessionStorage. Returning from hidden records the time away in milliseconds.</p>
+      <p id="storage-status" class="help" role="status"></p>
+      <div class="actions">
+        <button id="clear-log" type="button">Clear log</button>
+        <button id="copy-log" type="button">Copy log</button>
+      </div>
+      <p id="copy-status" class="help" role="status"></p>
+      <div id="copy-fallback" hidden>
+        <label for="copy-text">Manual copy</label>
+        <textarea id="copy-text" readonly spellcheck="false"></textarea>
+      </div>
+      <pre id="event-log" aria-label="Timestamped event log" tabindex="0"></pre>
+    </section>
+  </main>
+  <script>
+    "use strict";
+
+    const bridgeNames = ["jsBridge", "Android", "AndroidPOS"];
+    const returnUrl = "navipartnermpos://com.navipartner.mpos/vibrant";
+    const storageKey = "vibrant-appswitch-test.log.v1";
+    const byId = (id) => document.getElementById(id);
+    const cards = new Map();
+    let entries = [];
+    let hiddenAt = null;
+    let deepLink = "";
+
+    function errorText(error) {
+      return error && error.stack ? String(error.stack) : String(error);
+    }
+
+    function displayValue(value) {
+      if (value === undefined) return "undefined";
+      const json = JSON.stringify(value);
+      return json === undefined ? String(value) : json;
+    }
+
+    function element(tag, text, className) {
+      const node = document.createElement(tag);
+      if (text !== undefined) node.textContent = text;
+      if (className) node.className = className;
+      return node;
+    }
+
+    function timestamp() {
+      const date = new Date();
+      const pad = (value, width) => String(value).padStart(width, "0");
+      return `${pad(date.getHours(), 2)}:${pad(date.getMinutes(), 2)}:${pad(date.getSeconds(), 2)}.${pad(date.getMilliseconds(), 3)}`;
+    }
+
+    function renderLog() {
+      const log = byId("event-log");
+      log.textContent = entries.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function saveLog() {
+      try {
+        window.sessionStorage.setItem(storageKey, JSON.stringify({ entries, hiddenAt }));
+        byId("storage-status").textContent = "Session storage active; the log survives reloads in this tab.";
+      } catch (error) {
+        byId("storage-status").textContent = `Session storage unavailable; log is in memory only. ${String(error)}`;
+      }
+    }
+
+    function log(message, details) {
+      const suffix = details === undefined ? "" : ` ${displayValue(details)}`;
+      entries.push(`[${timestamp()}] ${message}${suffix}`);
+      entries = entries.slice(-500);
+      renderLog();
+      saveLog();
+    }
+
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(storageKey) || "null");
+      if (saved && Array.isArray(saved.entries)) {
+        entries = saved.entries.filter((entry) => typeof entry === "string").slice(-500);
+        hiddenAt = typeof saved.hiddenAt === "number" && Number.isFinite(saved.hiddenAt) ? saved.hiddenAt : null;
+      }
+    } catch (error) {
+      entries.push(`[${timestamp()}] Could not restore session log: ${String(error)}`);
+    }
+
+    function visibleTiming() {
+      if (document.visibilityState !== "visible" || hiddenAt === null) return "";
+      const elapsed = Math.max(0, Date.now() - hiddenAt);
+      hiddenAt = null;
+      return `; away ${elapsed} ms since hidden`;
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden" && hiddenAt === null) hiddenAt = Date.now();
+      log(`visibilitychange: ${document.visibilityState}${visibleTiming()}`);
+    });
+    window.addEventListener("pagehide", (event) => log("pagehide", { persisted: event.persisted, visibility: document.visibilityState }));
+    window.addEventListener("pageshow", (event) => {
+      log(`pageshow${visibleTiming()}`, { persisted: event.persisted, visibility: document.visibilityState });
+    });
+    window.addEventListener("focus", () => log("focus", { visibility: document.visibilityState }));
+    window.addEventListener("blur", () => log("blur", { visibility: document.visibilityState }));
+
+    function inspectBridge(scope, name) {
+      let exists = null;
+      try {
+        const object = scope[name];
+        exists = object !== undefined && object !== null;
+        const methodType = exists ? typeof object.VibrantAppSwitch : "undefined";
+        return { exists, callable: methodType === "function", detail: exists ? `typeof method: ${methodType}` : "Bridge object missing" };
+      } catch (error) {
+        return { exists, callable: null, detail: `Access failed: ${String(error)}` };
+      }
+    }
+
+    function callScope() {
+      try {
+        void window.top.document;
+        return { target: window.top, label: "window.top", fallback: false };
+      } catch (error) {
+        return { target: window, label: "window", fallback: true, reason: String(error) };
+      }
+    }
+
+    function availability(card, scope) {
+      const state = inspectBridge(scope.target, card.name);
+      card.button.disabled = card.busy || state.callable !== true;
+      card.help.textContent = card.busy ? "Call in progress…" : state.callable === true
+        ? `Ready: ${scope.label}.${card.name}.VibrantAppSwitch`
+        : `Disabled: ${scope.label}.${card.name} — ${state.detail}. Refresh after the bridge becomes available.`;
+    }
+
+    function refreshEnvironment(record) {
+      byId("user-agent").textContent = navigator.userAgent;
+      const rows = byId("environment-rows");
+      rows.textContent = "";
+      const snapshot = [];
+      for (const scopeName of ["window", "window.top"]) {
+        for (const name of bridgeNames) {
+          let state;
+          try {
+            state = inspectBridge(scopeName === "window" ? window : window.top, name);
+          } catch (error) {
+            state = { exists: null, callable: null, detail: `Access failed: ${String(error)}` };
+          }
+          const row = element("tr");
+          const yesNo = (value) => value === null ? "Unknown" : value ? "Yes" : "No";
+          for (const value of [`${scopeName}.${name}`, yesNo(state.exists), yesNo(state.callable), state.detail]) {
+            row.appendChild(element("td", value));
+          }
+          rows.appendChild(row);
+          snapshot.push({ object: `${scopeName}.${name}`, ...state });
+        }
+      }
+      const scope = callScope();
+      byId("bridge-scope").textContent = scope.fallback
+        ? `window.top is inaccessible (${scope.reason}); calls fall back to window[name].`
+        : "Calls use window.top[name]. A missing bridge in an accessible top frame disables its button.";
+      for (const card of cards.values()) availability(card, scope);
+      if (record) log("Refresh environment: complete", { userAgent: navigator.userAgent, callScope: scope.label, bridges: snapshot });
+    }
+
+    async function callBridge(card) {
+      const name = card.name;
+      const scope = callScope();
+      log(`Bridge button: ${scope.label}.${name}.VibrantAppSwitch`, { payload: "{}", fallback: scope.fallback });
+      for (const field of Object.values(card.fields)) field.textContent = "—";
+      const state = inspectBridge(scope.target, name);
+      if (state.callable !== true) {
+        card.fields.jsError.textContent = `Bridge unavailable: ${state.detail}`;
+        log(`Bridge ${name}: unavailable`, state);
+        refreshEnvironment(false);
+        return;
+      }
+      card.busy = true;
+      availability(card, scope);
+      const started = performance.now();
+      let raw;
+      try {
+        if (scope.fallback) {
+          raw = await window[name].VibrantAppSwitch(JSON.stringify({}));
+        } else {
+          raw = await window.top[name].VibrantAppSwitch(JSON.stringify({}));
+        }
+        const duration = (performance.now() - started).toFixed(1);
+        card.fields.duration.textContent = `${duration} ms`;
+        card.fields.raw.textContent = typeof raw === "string" ? raw : displayValue(raw);
+        card.fields.jsError.textContent = "None";
+        log(`Bridge ${name}: returned`, { raw, returnedType: typeof raw, durationMs: Number(duration) });
+        try {
+          const parsed = JSON.parse(raw);
+          const has = (key) => parsed !== null && typeof parsed === "object" && Object.prototype.hasOwnProperty.call(parsed, key);
+          card.fields.success.textContent = has("Success") ? displayValue(parsed.Success) : "(missing)";
+          card.fields.error.textContent = has("Error") ? displayValue(parsed.Error) : "(missing)";
+          card.fields.parseError.textContent = "None";
+          log(`Bridge ${name}: parsed`, { Success: card.fields.success.textContent, Error: card.fields.error.textContent });
+        } catch (error) {
+          card.fields.parseError.textContent = errorText(error);
+          log(`Bridge ${name}: JSON parse error`, errorText(error));
+        }
+      } catch (error) {
+        const duration = (performance.now() - started).toFixed(1);
+        card.fields.duration.textContent = `${duration} ms`;
+        card.fields.raw.textContent = "(no return value)";
+        card.fields.jsError.textContent = errorText(error);
+        log(`Bridge ${name}: threw`, { error: errorText(error), durationMs: Number(duration) });
+      } finally {
+        card.busy = false;
+        refreshEnvironment(false);
+      }
+    }
+
+    for (const name of bridgeNames) {
+      const panel = element("div", undefined, "bridge-card");
+      panel.appendChild(element("h3", name));
+      const button = element("button", `Call ${name}`);
+      button.type = "button";
+      const help = element("p", "", "help");
+      help.id = `help-${name}`;
+      button.setAttribute("aria-describedby", help.id);
+      panel.appendChild(button);
+      panel.appendChild(help);
+      const results = element("dl");
+      results.setAttribute("aria-live", "polite");
+      const fields = {};
+      for (const [key, title] of [["raw", "Raw return"], ["success", "Parsed Success"], ["error", "Parsed Error"], ["duration", "Call duration"], ["jsError", "Thrown JS error"], ["parseError", "JSON parse error"]]) {
+        results.appendChild(element("dt", title));
+        fields[key] = element("dd", "—", key.endsWith("Error") ? "error" : "");
+        results.appendChild(fields[key]);
+      }
+      panel.appendChild(results);
+      const card = { name, button, help, fields, busy: false };
+      cards.set(name, card);
+      button.addEventListener("click", () => callBridge(card));
+      byId("bridge-cards").appendChild(panel);
+    }
+
+    function updateDeepLink() {
+      const anchor = byId("deep-link-anchor");
+      try {
+        deepLink = `vibrantio://a2a?callbackUrl=${encodeURIComponent(byId("callback-url").value)}`;
+        byId("deep-link-preview").textContent = deepLink;
+        anchor.setAttribute("href", deepLink);
+        anchor.removeAttribute("aria-disabled");
+        byId("deep-link-location").disabled = false;
+        byId("deep-link-status").textContent = "Navigation requests are logged. Check the app and lifecycle events to confirm it opened.";
+      } catch (error) {
+        deepLink = "";
+        byId("deep-link-preview").textContent = `Cannot encode callbackUrl: ${String(error)}`;
+        anchor.removeAttribute("href");
+        anchor.setAttribute("aria-disabled", "true");
+        byId("deep-link-location").disabled = true;
+        byId("deep-link-status").textContent = "Edit callbackUrl to make it encodable.";
+        log("Deep link preview: encoding failed", errorText(error));
+      }
+    }
+
+    byId("refresh").addEventListener("click", () => refreshEnvironment(true));
+    byId("callback-url").addEventListener("input", updateDeepLink);
+    byId("callback-url").addEventListener("change", () => log("callbackUrl edited", { callbackUrl: byId("callback-url").value, url: deepLink }));
+    for (const [id, value] of [["callback-mpos", returnUrl], ["callback-web", "https://vibrant.io/"]]) {
+      byId(id).addEventListener("click", () => {
+        byId("callback-url").value = value;
+        updateDeepLink();
+        log("Quick-fill button: callback updated", { callbackUrl: value, url: deepLink });
+      });
+    }
+    byId("deep-link-anchor").addEventListener("click", (event) => {
+      if (!deepLink) {
+        event.preventDefault();
+        log("Vibrant anchor: navigation blocked by invalid callbackUrl");
+        return;
+      }
+      log("Vibrant anchor: navigation requested", { url: deepLink });
+    });
+    byId("deep-link-location").addEventListener("click", () => {
+      log("location.href button: navigation requested", { url: deepLink });
+      try {
+        window.location.href = deepLink;
+        byId("deep-link-status").textContent = "location.href assigned; inspect the device and event log for the outcome.";
+        log("location.href: assigned; app launch is not confirmed by JavaScript");
+      } catch (error) {
+        byId("deep-link-status").textContent = errorText(error);
+        log("location.href: threw", errorText(error));
+      }
+    });
+    byId("return-anchor").addEventListener("click", () => log("mPOS return anchor: navigation requested", { url: returnUrl }));
+
+    byId("clear-log").addEventListener("click", () => {
+      entries = [];
+      byId("copy-fallback").hidden = true;
+      byId("copy-text").value = "";
+      byId("copy-status").textContent = "";
+      log("Clear button: log cleared");
+    });
+
+    byId("copy-log").addEventListener("click", async () => {
+      log("Copy button: requested");
+      const snapshot = entries.join("\n");
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+          throw new Error("Clipboard API unavailable");
+        }
+        await navigator.clipboard.writeText(snapshot);
+        byId("copy-fallback").hidden = true;
+        byId("copy-status").textContent = "Log copied to clipboard.";
+        log("Copy: clipboard write succeeded");
+      } catch (error) {
+        log("Copy: using manual selection", String(error));
+        byId("copy-fallback").hidden = false;
+        const textarea = byId("copy-text");
+        textarea.value = entries.join("\n");
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        byId("copy-status").textContent = "Log selected below. Touch and hold the selection and choose Copy, or press Ctrl+C.";
+        log("Copy: textarea selected for manual copying");
+      }
+    });
+
+    refreshEnvironment(false);
+    updateDeepLink();
+    if (document.visibilityState === "hidden" && hiddenAt === null) hiddenAt = Date.now();
+    log(`Page load${visibleTiming()}`, { url: window.location.href, userAgent: navigator.userAgent, visibility: document.visibilityState, callScope: callScope().label });
+  </script>
+</body>
+</html>
